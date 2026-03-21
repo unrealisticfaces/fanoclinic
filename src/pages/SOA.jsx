@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { db } from "../firebase";
 import { ref, onValue } from "firebase/database";
-import { Search, Printer, FileText, X, UserCircle } from "lucide-react";
+import { Search, Printer, FileText, X } from "lucide-react";
 
 export default function SOA() {
   const [patients, setPatients] = useState([]);
@@ -23,34 +23,27 @@ export default function SOA() {
     return () => unsubscribe();
   }, []);
 
-  const generateSOA = (patient) => {
-    setSelectedPatient(patient);
-    setIsModalOpen(true);
-  };
-
-  const handlePrint = () => {
-    window.print();
-  };
-
   const filteredPatients = patients.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
-  // Calculate SOA Totals
-  const getSOALineItems = (p) => {
+  const generateSOAData = (p) => {
     const items = [];
     let grandTotal = 0;
     
+    // Process Extractions
     if (p.extractions) Object.values(p.extractions).forEach(e => {
         const bal = parseFloat(e.amount||0) - parseFloat(e.downpayment||0);
         items.push({ date: e.date, service: "Extraction", total: e.amount, paid: e.downpayment, balance: bal });
         grandTotal += bal;
     });
 
+    // Process Pasta
     if (p.pasta) Object.values(p.pasta).forEach(e => {
         const bal = parseFloat(e.amount||0) - parseFloat(e.downpayment||0);
         items.push({ date: e.date, service: "Restoration (Pasta)", total: e.amount, paid: e.downpayment, balance: bal });
         grandTotal += bal;
     });
 
+    // Process Braces (Consolidated contract view)
     if (p.braces) Object.values(p.braces).forEach(b => {
         let monthlyPaid = 0;
         if (b.visits) Object.values(b.visits).forEach(v => monthlyPaid += parseFloat(v.paid||0));
@@ -63,104 +56,114 @@ export default function SOA() {
     return { items, grandTotal };
   };
 
-  const soaData = selectedPatient ? getSOALineItems(selectedPatient) : { items: [], grandTotal: 0 };
+  const soa = selectedPatient ? generateSOAData(selectedPatient) : { items: [], grandTotal: 0 };
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
       <div className="no-print">
         <h3 style={{ margin: 0, fontWeight: 800, fontSize: '1.5rem' }}>Statement of Account</h3>
-        <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>Generate and print patient financial statements.</p>
+        <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>Generate financial statements for patients.</p>
 
         <div style={{ position: 'relative', maxWidth: '400px', marginBottom: '2rem' }}>
           <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <input type="text" placeholder="Search patient name..." className="modern-input" style={{ paddingLeft: '2.5rem', borderRadius: '50px' }} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+          <input 
+            type="text" 
+            placeholder="Search patient name..." 
+            className="modern-input" 
+            style={{ paddingLeft: '2.5rem', borderRadius: '50px' }} 
+            value={searchTerm} 
+            onChange={(e) => setSearchTerm(e.target.value)} 
+          />
         </div>
 
-        <div style={{ background: 'white', borderRadius: '16px', border: '1px solid var(--border-color)', overflow: 'hidden' }}>
+        <div style={{ background: 'white', borderRadius: '16px', border: '1px solid var(--border-color)', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
           <table style={{ width: '100%' }}>
             <thead>
               <tr>
                 <th style={{textAlign: 'left'}}>Patient Name</th>
-                <th style={{textAlign: 'left'}}>Contact</th>
-                <th style={{textAlign: 'center'}}>Action</th>
+                <th style={{textAlign: 'left'}}>Contact #</th>
+                <th style={{textAlign: 'center'}}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filteredPatients.map(p => (
-                <tr key={p.id}>
-                  <td><div style={{fontWeight:700}}>{p.name}</div></td>
-                  <td style={{color: 'var(--text-muted)'}}>{p.contact}</td>
-                  <td style={{textAlign:'center'}}>
-                    <button onClick={() => generateSOA(p)} className="btn-primary" style={{ display: 'inline-flex', gap: '0.5rem', alignItems: 'center', padding: '0.5rem 1rem' }}>
-                      <FileText size={14} /> Generate SOA
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {filteredPatients.length === 0 ? <tr><td colSpan="3" style={{padding: '2rem', textAlign:'center', color: 'var(--text-muted)'}}>No patients found.</td></tr> :
+                filteredPatients.map(p => (
+                  <tr key={p.id}>
+                    <td><div style={{fontWeight:700}}>{p.name}</div></td>
+                    <td>{p.contact}</td>
+                    <td style={{textAlign:'center'}}>
+                      <button 
+                        onClick={() => { setSelectedPatient(p); setIsModalOpen(true); }} 
+                        className="btn-primary" 
+                        style={{ padding: '0.5rem 1rem', display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
+                      >
+                        <FileText size={14} /> Generate SOA
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              }
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* --- SOA MODAL / PRINT VIEW --- */}
+      {/* SOA PREVIEW MODAL */}
       {isModalOpen && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15, 23, 42, 0.8)', zIndex: 100, display: 'flex', justifyContent: 'center', overflowY: 'auto', padding: '2rem' }}>
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 100, display: 'flex', justifyContent: 'center', padding: '2rem', overflowY: 'auto' }}>
           <div style={{ background: 'white', width: '100%', maxWidth: '800px', padding: '3rem', borderRadius: '8px', position: 'relative', height: 'fit-content' }}>
-            
-            {/* Modal Controls */}
             <div className="no-print" style={{ position: 'absolute', top: '1rem', right: '1rem', display: 'flex', gap: '1rem' }}>
-                <button onClick={handlePrint} className="btn-primary" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}><Printer size={16}/> Print Now</button>
-                <button onClick={() => setIsModalOpen(false)} style={{ background: '#f1f5f9', border: 'none', padding: '0.5rem', borderRadius: '50%', cursor: 'pointer' }}><X size={20}/></button>
+                <button onClick={() => window.print()} className="btn-primary" style={{ display: 'flex', alignItems:'center', gap: '0.5rem'}}><Printer size={16}/> Print SOA</button>
+                <button onClick={() => setIsModalOpen(false)} style={{ background: '#eee', border: 'none', padding: '0.5rem', borderRadius: '50%', cursor: 'pointer' }}><X size={20}/></button>
             </div>
 
-            {/* THE ACTUAL STATEMENT CONTENT */}
-            <div style={{ textAlign: 'center', borderBottom: '2px solid #000', paddingBottom: '1rem', marginBottom: '2rem' }}>
-                <h1 style={{ margin: 0, fontSize: '26px' }}>FANO DENTAL CLINIC</h1>
-                <p style={{ margin: '5px 0' }}>Official Statement of Account</p>
+            <div style={{ textAlign: 'center', borderBottom: '2px solid #000', paddingBottom: '1.5rem', marginBottom: '2rem' }}>
+                <h1 style={{ margin: 0, fontSize: '28px' }}>FANO DENTAL CLINIC</h1>
+                <p style={{ margin: '5px 0', fontSize: '14px' }}>Statement of Account</p>
+                <p style={{ margin: 0, fontSize: '12px' }}>Date Issued: {new Date().toLocaleDateString()}</p>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' }}>
                 <div>
-                    <p style={{ margin: 0, fontWeight: 700 }}>BILL TO:</p>
-                    <p style={{ margin: '4px 0', fontSize: '18px', fontWeight: 800 }}>{selectedPatient.name}</p>
-                    <p style={{ margin: 0, fontSize: '14px', color: '#444' }}>{selectedPatient.address}</p>
+                    <p style={{ margin: 0, fontSize: '12px', color: '#666' }}>PATIENT:</p>
+                    <p style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>{selectedPatient.name}</p>
+                    <p style={{ margin: 0, fontSize: '14px' }}>{selectedPatient.address}</p>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                    <p style={{ margin: 0 }}><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
-                    <p style={{ margin: 0 }}><strong>Invoice #:</strong> SOA-{selectedPatient.id.substring(1, 6).toUpperCase()}</p>
+                    <p style={{ margin: 0, fontSize: '14px' }}><strong>Contact:</strong> {selectedPatient.contact}</p>
                 </div>
             </div>
 
             <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000' }}>
                 <thead>
                     <tr style={{ background: '#f1f1f1' }}>
-                        <th style={{ border: '1px solid #000', padding: '10px', textAlign: 'left' }}>Date</th>
-                        <th style={{ border: '1px solid #000', padding: '10px', textAlign: 'left' }}>Description</th>
-                        <th style={{ border: '1px solid #000', padding: '10px', textAlign: 'right' }}>Total</th>
-                        <th style={{ border: '1px solid #000', padding: '10px', textAlign: 'right' }}>Paid</th>
-                        <th style={{ border: '1px solid #000', padding: '10px', textAlign: 'right' }}>Balance</th>
+                        <th style={{ border: '1px solid #000', padding: '12px', textAlign: 'left' }}>Date</th>
+                        <th style={{ border: '1px solid #000', padding: '12px', textAlign: 'left' }}>Service Description</th>
+                        <th style={{ border: '1px solid #000', padding: '12px', textAlign: 'right' }}>Total Bill</th>
+                        <th style={{ border: '1px solid #000', padding: '12px', textAlign: 'right' }}>Total Paid</th>
+                        <th style={{ border: '1px solid #000', padding: '12px', textAlign: 'right' }}>Remaining</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {soaData.items.map((item, idx) => (
+                    {soa.items.map((item, idx) => (
                         <tr key={idx}>
-                            <td style={{ border: '1px solid #000', padding: '10px' }}>{item.date}</td>
-                            <td style={{ border: '1px solid #000', padding: '10px' }}><strong>{item.service}</strong></td>
-                            <td style={{ border: '1px solid #000', padding: '10px', textAlign: 'right' }}>₱{parseFloat(item.total).toLocaleString()}</td>
-                            <td style={{ border: '1px solid #000', padding: '10px', textAlign: 'right' }}>₱{parseFloat(item.paid).toLocaleString()}</td>
-                            <td style={{ border: '1px solid #000', padding: '10px', textAlign: 'right', fontWeight: 700 }}>₱{parseFloat(item.balance).toLocaleString()}</td>
+                            <td style={{ border: '1px solid #000', padding: '12px' }}>{item.date}</td>
+                            <td style={{ border: '1px solid #000', padding: '12px' }}><strong>{item.service}</strong></td>
+                            <td style={{ border: '1px solid #000', padding: '12px', textAlign: 'right' }}>₱{parseFloat(item.total||0).toLocaleString()}</td>
+                            <td style={{ border: '1px solid #000', padding: '12px', textAlign: 'right' }}>₱{parseFloat(item.paid||0).toLocaleString()}</td>
+                            <td style={{ border: '1px solid #000', padding: '12px', textAlign: 'right', fontWeight: 700 }}>₱{parseFloat(item.balance||0).toLocaleString()}</td>
                         </tr>
                     ))}
                 </tbody>
             </table>
 
-            <div style={{ marginTop: '2rem', textAlign: 'right' }}>
-                <h2 style={{ margin: 0 }}>GRAND TOTAL: ₱{soaData.grandTotal.toLocaleString()}</h2>
+            <div style={{ marginTop: '2.5rem', textAlign: 'right' }}>
+                <h2 style={{ margin: 0, fontSize: '24px' }}>GRAND TOTAL DUE: ₱{soa.grandTotal.toLocaleString()}</h2>
             </div>
 
-            <div style={{ marginTop: '5rem', display: 'flex', justifyContent: 'space-between' }}>
-                <div style={{ width: '200px', textAlign: 'center', borderTop: '1px solid #000', paddingTop: '5px', fontSize: '12px' }}>Patient Signature</div>
-                <div style={{ width: '200px', textAlign: 'center', borderTop: '1px solid #000', paddingTop: '5px', fontSize: '12px' }}>Authorized Representative</div>
+            <div style={{ marginTop: '6rem', display: 'flex', justifyContent: 'space-between' }}>
+                <div style={{ width: '220px', textAlign: 'center', borderTop: '1.5px solid #000', paddingTop: '8px', fontSize: '12px' }}>Patient / Representative Signature</div>
+                <div style={{ width: '220px', textAlign: 'center', borderTop: '1.5px solid #000', paddingTop: '8px', fontSize: '12px' }}>Clinic Authorized Signatory</div>
             </div>
           </div>
         </div>
