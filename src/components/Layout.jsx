@@ -7,6 +7,8 @@ import {
   Users, 
   Wallet, 
   FileText, 
+  LogIn, 
+  Monitor, 
   LogOut, 
   Menu, 
   X 
@@ -23,6 +25,9 @@ export default function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
 
+  // Check if we are on the Live Queue page
+  const isTVMode = location.pathname === "/live-queue";
+
   const handleLogout = async () => {
     await signOut(auth);
     navigate("/login");
@@ -33,14 +38,23 @@ export default function Layout() {
     { name: "Patient Masterlist", path: "/patients", icon: <Users size={20} /> },
     { name: "Payments & Visits", path: "/payments", icon: <Wallet size={20} /> },
     { name: "SOA Generator", path: "/soa", icon: <FileText size={20} /> },
+    { name: "Walk-in", path: "/walk-in", icon: <LogIn size={20} /> },
+    { name: "Live Queue TV", path: "/live-queue", icon: <Monitor size={20} /> },
   ];
+
+  // FIXED: TV Mode wrapper to ensure content is visible
+  if (isTVMode) {
+    return (
+      <div style={{ width: '100vw', height: '100vh', backgroundColor: '#0f172a' }}>
+        <Outlet />
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', height: '100vh', backgroundColor: 'var(--bg-color)', overflow: 'hidden' }}>
-      {/* Mobile Overlay */}
       {sidebarOpen && <div onClick={() => setSidebarOpen(false)} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(4px)', zIndex: 40 }} />}
       
-      {/* Sidebar */}
       <aside style={{ 
         width: '280px', backgroundColor: 'var(--card-bg)', display: 'flex', flexDirection: 'column',
         position: window.innerWidth < 768 ? 'fixed' : 'relative', 
@@ -59,9 +73,9 @@ export default function Layout() {
         </div>
 
         <nav style={{ padding: '0 1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', flexGrow: 1, marginTop: '1rem' }}>
-          <p style={{ padding: '0 1rem', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.5rem' }}>Billing & Records</p>
+          <p style={{ padding: '0 1rem', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.5rem' }}>Clinic Operations</p>
           {navLinks.map((link) => {
-            const isActive = location.pathname === link.path || (link.path === '/patients' && location.pathname.includes('/patient/'));
+            const isActive = location.pathname === link.path;
             return (
               <Link 
                 key={link.name} 
@@ -88,12 +102,11 @@ export default function Layout() {
 
         <div style={{ padding: '1.5rem', borderTop: '1px solid var(--border-color)' }}>
           <button onClick={handleLogout} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', width: '100%', padding: '0.85rem', background: '#fff1f2', color: 'var(--danger)', border: 'none', borderRadius: '12px', cursor: 'pointer', fontWeight: 600 }}>
-            <LogOut size={20} /> Secure Logout
+            <LogOut size={20} /> Logout
           </button>
         </div>
       </aside>
 
-      {/* Main Content Area */}
       <main style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
         <header style={{ margin: '1.5rem 2rem 0 2rem', backgroundColor: 'rgba(255, 255, 255, 0.8)', backdropFilter: 'blur(12px)', padding: '1rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderRadius: '16px', boxShadow: '0 4px 20px -2px rgba(0,0,0,0.03)', border: '1px solid rgba(255,255,255,0.5)', zIndex: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>

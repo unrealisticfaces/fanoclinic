@@ -4,7 +4,9 @@ import Dashboard from "./pages/Dashboard";
 import Patients from "./pages/Patients";
 import PatientProfile from "./pages/PatientProfile";
 import Payments from "./pages/Payments";
-import SOA from "./pages/SOA"; // Added the new SOA page
+import SOA from "./pages/SOA";
+import WalkIn from "./pages/WalkIn"; // NEW
+import LiveQueue from "./pages/LiveQueue"; // NEW
 import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -13,16 +15,15 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
-        
-        {/* All these routes are protected and wrapped in our Sidebar Layout */}
         <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/patients" element={<Patients />} />
           <Route path="/patient/:id" element={<PatientProfile />} />
           <Route path="/payments" element={<Payments />} />
-          <Route path="/soa" element={<SOA />} /> {/* New SOA route */}
+          <Route path="/soa" element={<SOA />} />
+          <Route path="/walk-in" element={<WalkIn />} /> {/* NEW */}
+          <Route path="/live-queue" element={<LiveQueue />} /> {/* NEW */}
         </Route>
-
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
