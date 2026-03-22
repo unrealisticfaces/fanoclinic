@@ -1,196 +1,143 @@
 import { useState, useEffect } from "react";
-import { db, auth } from "../firebase";
-import { ref, push, onValue, remove, update } from "firebase/database";
-import { Trash2, Search, Edit, PlusCircle, X, UserCircle, Eye } from "lucide-react";
-import { Link } from "react-router-dom"; // <-- We are using Link now for 100% reliability
+import { db } from "../firebase";
+import { ref, push, onValue, update } from "firebase/database";
+import { Search, X, Eye, Edit3, UserPlus, User } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export default function Patients() {
   const [patients, setPatients] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingId, setEditingId] = useState(null);
+  const [editingPatient, setEditingPatient] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-  const isAdmin = auth.currentUser?.email === 'admin@gmail.com';
-
-  const [formData, setFormData] = useState({
-    name: "", age: "", contact: "", address: "", dateAdded: new Date().toLocaleDateString('en-CA'),
-    procedure: "Extraction", dentist: "", amount: "", downpayment: ""
-  });
+  const [infoData, setInfoData] = useState({ fname: "", mname: "", lname: "", age: "", contact: "", address: "" });
 
   useEffect(() => {
-    const patientsRef = ref(db, "patients");
-    const unsubscribe = onValue(patientsRef, (snapshot) => {
+    onValue(ref(db, "patients"), (snapshot) => {
       const data = snapshot.val();
-      if (data) {
-        const dataArray = Object.keys(data).map(key => ({ id: key, ...data[key] }));
-        setPatients(dataArray.reverse()); 
-      } else {
-        setPatients([]);
-      }
+      setPatients(data ? Object.keys(data).map(key => ({ id: key, ...data[key] })).reverse() : []);
     });
-    return () => unsubscribe();
   }, []);
 
-  const handleSubmit = async (e) => {
+  const generateID = () => `F-${new Date().getFullYear().toString().slice(-2)}-${(patients.length + 1).toString().padStart(3, '0')}`;
+
+  const handleSaveInfo = async (e) => {
     e.preventDefault();
     setLoading(true);
+    const fullName = `${infoData.fname} ${infoData.mname} ${infoData.lname}`.trim();
     try {
-      if (editingId && isAdmin) {
-        await update(ref(db, `patients/${editingId}`), {
-          name: formData.name, age: formData.age, contact: formData.contact, address: formData.address
-        });
+      if (editingPatient) {
+        await update(ref(db, `patients/${editingPatient.id}`), { ...infoData, name: fullName });
       } else {
-        const newPatientRef = await push(ref(db, "patients"), {
-          name: formData.name, age: formData.age, contact: formData.contact, address: formData.address, dateAdded: formData.dateAdded
-        });
-        const pid = newPatientRef.key;
-        const date = formData.dateAdded;
-        const dentist = formData.dentist;
-        const amount = formData.amount;
-        const downpayment = formData.downpayment;
-
-        if (formData.procedure === "Extraction") {
-          await push(ref(db, `patients/${pid}/extractions`), { date, dentist, notes: "Initial Visit", amount, downpayment });
-        } else if (formData.procedure === "Pasta") {
-          await push(ref(db, `patients/${pid}/pasta`), { date, dentist, notes: "Initial Visit", amount, downpayment });
-        } else if (formData.procedure === "Braces") {
-          await push(ref(db, `patients/${pid}/braces`), { dateStarted: date, dentist, amount, downpayment });
-        }
+        await push(ref(db, "patients"), { ...infoData, name: fullName, medicalId: generateID(), dateRegistered: new Date().toLocaleDateString('en-CA') });
       }
-      setFormData({ name: "", age: "", contact: "", address: "", dateAdded: new Date().toLocaleDateString('en-CA'), procedure: "Extraction", dentist: "", amount: "", downpayment: "" });
-      setIsModalOpen(false);
-    } catch (error) {
-      alert("Failed to save patient. Check permissions.");
-    } finally {
-      setLoading(false);
-    }
+      closeModal();
+    } catch (err) { alert(err.message); } finally { setLoading(false); }
   };
 
-  const openAddModal = () => {
-    setEditingId(null);
-    setFormData({ name: "", age: "", contact: "", address: "", dateAdded: new Date().toLocaleDateString('en-CA'), procedure: "Extraction", dentist: "", amount: "", downpayment: "" });
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setEditingPatient(null);
+    setInfoData({ fname: "", mname: "", lname: "", age: "", contact: "", address: "" });
+  };
+
+  const handleEdit = (p) => {
+    setEditingPatient(p);
+    const names = p.name ? p.name.split(" ") : ["", "", ""];
+    setInfoData({ fname: p.fname || names[0] || "", mname: p.mname || names[1] || "", lname: p.lname || names[names.length-1] || "", age: p.age, contact: p.contact, address: p.address });
     setIsModalOpen(true);
   };
 
-  const handleEdit = (patient) => {
-    setEditingId(patient.id);
-    setFormData({ name: patient.name, age: patient.age, contact: patient.contact, address: patient.address, dateAdded: patient.dateAdded || '' });
-    setIsModalOpen(true);
-  };
-
-  const handleDelete = async (id) => {
-    if (window.confirm("CRITICAL WARNING: Delete this patient and ALL their medical history?")) {
-      await remove(ref(db, `patients/${id}`));
-    }
-  };
-
-  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
-
-  const filteredPatients = patients.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filtered = patients.filter(p => p.name?.toLowerCase().includes(searchTerm.toLowerCase()) || p.medicalId?.toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-      
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
-        <div>
-          <h3 style={{ margin: 0, color: 'var(--text-main)', fontWeight: 800, fontSize: '1.5rem' }}>Patient Masterlist</h3>
-          <p style={{ margin: '0.2rem 0 0 0', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Search and manage your clinic's patients</p>
-        </div>
-        <div style={{ display: 'flex', gap: '1rem', width: '100%', maxWidth: '500px' }}>
-          <div style={{ position: 'relative', flexGrow: 1 }}>
-            <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-            <input type="text" placeholder="Search patients..." className="modern-input" style={{ paddingLeft: '2.5rem', borderRadius: '50px' }} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-          </div>
-          <button onClick={openAddModal} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap' }}>
-            <PlusCircle size={18} /> New Patient
-          </button>
-        </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+        <h2 style={{ fontWeight: 900, fontSize: '1.8rem' }}>Patient Masterlist</h2>
+        <button onClick={() => { setEditingPatient(null); setIsModalOpen(true); }} className="btn-primary" style={{ width: 'auto', padding: '0.8rem 1.5rem', display: 'flex', gap: '0.5rem' }}>
+          <UserPlus size={20} /> New Registration
+        </button>
       </div>
 
-      <div style={{ background: 'white', borderRadius: '16px', border: '1px solid var(--border-color)', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', minWidth: '800px' }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: 'left' }}>Patient Name</th>
-                <th style={{ textAlign: 'left' }}>Age</th>
-                <th style={{ textAlign: 'left' }}>Contact</th>
-                <th style={{ textAlign: 'left' }}>Address</th>
-                <th style={{ textAlign: 'center' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredPatients.length === 0 ? (<tr><td colSpan="5" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>No patients found.</td></tr>) : (
-                filteredPatients.map((patient) => (
-                  <tr key={patient.id}>
-                    <td style={{ textAlign: 'left', verticalAlign: 'middle' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <div style={{ background: 'var(--bg-color)', padding: '0.5rem', borderRadius: '50%', color: 'var(--primary)' }}><UserCircle size={24} /></div>
-                        <div>
-                          <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-main)' }}>{patient.name}</div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Added: {patient.dateAdded || 'N/A'}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td style={{ textAlign: 'left', verticalAlign: 'middle', fontSize: '0.9rem', color: 'var(--text-muted)' }}>{patient.age}</td>
-                    <td style={{ textAlign: 'left', verticalAlign: 'middle', fontSize: '0.9rem', color: 'var(--text-main)', fontWeight: 500 }}>{patient.contact}</td>
-                    <td style={{ textAlign: 'left', verticalAlign: 'middle', fontSize: '0.85rem', color: 'var(--text-muted)' }}>{patient.address}</td>
-                    <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
-                      <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem' }}>
-                        
-                        {/* THE BULLETPROOF REACT LINK */}
-                        <Link to={`/patient/${patient.id}`} style={{ background: 'var(--text-main)', color: 'white', textDecoration: 'none', padding: '0.5rem 1rem', borderRadius: '50px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
-                          <Eye size={14} /> Details
-                        </Link>
+      <div style={{ position: 'relative', maxWidth: '450px', marginBottom: '2rem' }}>
+        <Search size={18} style={{ position: 'absolute', left: '15px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+        <input type="text" placeholder="Search ID or Name..." className="modern-input" style={{ paddingLeft: '3rem', borderRadius: '50px' }} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+      </div>
 
-                        {isAdmin && (
-                          <>
-                            <button onClick={() => handleEdit(patient)} style={{ background: 'var(--primary-light)', color: 'var(--primary)', border: 'none', padding: '0.5rem', borderRadius: '50px', cursor: 'pointer' }}><Edit size={16} /></button>
-                            <button onClick={() => handleDelete(patient.id)} style={{ background: '#ffe4e6', color: 'var(--danger)', border: 'none', padding: '0.5rem', borderRadius: '50px', cursor: 'pointer' }}><Trash2 size={16} /></button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+      <div style={{ background: 'white', borderRadius: '24px', border: '1px solid var(--border-color)', overflow: 'hidden' }}>
+        <table style={{ width: '100%', textAlign: 'left' }}>
+          <thead>
+            <tr style={{ background: 'var(--bg-color)', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+              <th style={{ padding: '1.2rem' }}>ID</th>
+              <th>Full Name</th>
+              <th>Contact</th>
+              <th>Complete Address</th>
+              <th style={{ textAlign: 'center' }}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map(p => (
+              <tr key={p.id} style={{ borderTop: '1px solid var(--border-color)' }}>
+                <td style={{ padding: '1.2rem' }}><span style={{ fontWeight: 800, color: 'var(--primary)' }}>{p.medicalId}</span></td>
+                <td style={{ fontWeight: 700 }}>{p.name}</td>
+                <td>{p.contact}</td>
+                <td style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{p.address}</td>
+                <td style={{ textAlign: 'center', display: 'flex', gap: '0.5rem', justifyContent: 'center', padding: '1rem' }}>
+                  <Link title="View Medical Chart" to={`/patient/${p.id}`} className="btn-primary" style={{ padding: '0.5rem', borderRadius: '8px', background: '#f1f5f9', color: '#475569' }}><Eye size={18}/></Link>
+                  <button title="Update Profile" onClick={() => handleEdit(p)} className="btn-primary" style={{ padding: '0.5rem', borderRadius: '8px' }}><Edit3 size={18}/></button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
       {isModalOpen && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }}>
-          <div style={{ background: 'white', borderRadius: '20px', width: '100%', maxWidth: '550px', padding: '2rem', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', position: 'relative', maxHeight: '90vh', overflowY: 'auto' }}>
-            <button onClick={() => setIsModalOpen(false)} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={20} /></button>
-            <h3 style={{ margin: '0 0 1.5rem 0', color: 'var(--text-main)', fontWeight: 800 }}>{editingId ? "Edit Patient Details" : "Register New Patient"}</h3>
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div><label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.5rem', display: 'block' }}>Full Name</label><input type="text" name="name" value={formData.name} onChange={handleChange} className="modern-input" required /></div>
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          
+          <div style={{ background: 'white', width: '100%', maxWidth: '600px', borderRadius: '24px', padding: '2.5rem', position: 'relative' }}>
+            <button onClick={closeModal} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', border: 'none', background: 'none', cursor: 'pointer', zIndex: 10 }}><X /></button>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
+              <User size={24} color="var(--primary)" />
+              <h3 style={{ margin: 0, fontWeight: 800 }}>{editingPatient ? 'Update Profile' : 'Register Patient'}</h3>
+            </div>
+            
+            <form onSubmit={handleSaveInfo} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div><label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.5rem', display: 'block' }}>Age</label><input type="number" name="age" value={formData.age} onChange={handleChange} className="modern-input" required /></div>
-                <div><label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.5rem', display: 'block' }}>Contact #</label><input type="text" name="contact" value={formData.contact} onChange={handleChange} className="modern-input" required /></div>
-              </div>
-              <div><label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.5rem', display: 'block' }}>Complete Address</label><input type="text" name="address" value={formData.address} onChange={handleChange} className="modern-input" required /></div>
-              {!editingId && (
-                <div style={{ marginTop: '0.5rem', paddingTop: '1.5rem', borderTop: '2px dashed var(--border-color)' }}>
-                  <h4 style={{ margin: '0 0 1rem 0', color: 'var(--primary)', fontSize: '0.95rem', fontWeight: 700 }}>Initial Procedure Details</h4>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                    <div>
-                      <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.5rem', display: 'block' }}>Procedure</label>
-                      <select name="procedure" value={formData.procedure} onChange={handleChange} className="modern-input" style={{ cursor: 'pointer' }}>
-                        <option value="Extraction">Extraction</option><option value="Pasta">Restoration (Pasta)</option><option value="Braces">Orthodontics (Braces)</option>
-                      </select>
-                    </div>
-                    <div><label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.5rem', display: 'block' }}>Dentist In-charge</label><input type="text" name="dentist" placeholder="Dr. Name" value={formData.dentist} onChange={handleChange} className="modern-input" required={!editingId} /></div>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                    <div style={{ background: '#fef3c7', padding: '0.75rem', borderRadius: '10px' }}><label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#b45309', marginBottom: '0.5rem', display: 'block' }}>Total Amount (₱)</label><input type="number" name="amount" value={formData.amount} onChange={handleChange} className="modern-input" style={{ borderColor: '#fcd34d' }} required={!editingId} /></div>
-                    <div style={{ background: 'var(--primary-light)', padding: '0.75rem', borderRadius: '10px' }}><label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--primary-hover)', marginBottom: '0.5rem', display: 'block' }}>Downpayment / Paid (₱)</label><input type="number" name="downpayment" value={formData.downpayment} onChange={handleChange} className="modern-input" style={{ borderColor: '#99f6e4' }} required={!editingId} /></div>
-                  </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>MEDICAL ID</label>
+                  <input className="modern-input" value={editingPatient ? editingPatient.medicalId : generateID()} readOnly style={{ background: '#f8fafc', fontWeight: 800, color: 'var(--primary)' }} />
                 </div>
-              )}
-              <button type="submit" className="btn-primary" style={{ marginTop: '1rem' }} disabled={loading}>{loading ? "Saving..." : editingId ? "Update Details" : "Create Patient File"}</button>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>AGE</label>
+                  <input className="modern-input" type="number" value={infoData.age} onChange={e => setInfoData({...infoData, age: e.target.value})} required />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>FIRST NAME</label>
+                  <input className="modern-input" value={infoData.fname} onChange={e => setInfoData({...infoData, fname: e.target.value})} required />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>MIDDLE NAME</label>
+                  <input className="modern-input" value={infoData.mname} onChange={e => setInfoData({...infoData, mname: e.target.value})} />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>LAST NAME</label>
+                  <input className="modern-input" value={infoData.lname} onChange={e => setInfoData({...infoData, lname: e.target.value})} required />
+                </div>
+              </div>
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>CONTACT NUMBER</label>
+                <input className="modern-input" value={infoData.contact} onChange={e => setInfoData({...infoData, contact: e.target.value})} required />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>COMPLETE ADDRESS</label>
+                <input className="modern-input" value={infoData.address} onChange={e => setInfoData({...infoData, address: e.target.value})} required />
+              </div>
+              <button type="submit" className="btn-primary" style={{ marginTop: '0.5rem' }}>{loading ? 'Saving...' : 'Save Profile Changes'}</button>
             </form>
           </div>
         </div>
