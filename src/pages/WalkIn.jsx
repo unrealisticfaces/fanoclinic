@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
 import { db } from "../firebase";
 import { ref, push, onValue, remove, update } from "firebase/database";
-import { UserPlus, Trash2, Megaphone } from "lucide-react";
+import { Trash2, Megaphone } from "lucide-react";
 
 export default function WalkIn() {
   const [queue, setQueue] = useState([]);
-  const [formData, setFormData] = useState({ name: "", age: "", address: "", procedure: "Check-up" });
-  const today = new Date().toISOString().split('T')[0];
+  const [formData, setFormData] = useState({ 
+    fname: "", mname: "", lname: "", age: "", address: "", procedure: "Check-up" 
+  });
+  const today = new Date().toLocaleDateString('en-CA');
 
   useEffect(() => {
     onValue(ref(db, `queues/${today}`), (snap) => {
@@ -18,51 +20,119 @@ export default function WalkIn() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const nextNum = queue.length > 0 ? Math.max(...queue.map(q => q.queueNumber)) + 1 : 1;
-    await push(ref(db, `queues/${today}`), { ...formData, queueNumber: nextNum, status: "waiting" });
-    setFormData({ name: "", age: "", address: "", procedure: "Check-up" });
+    const fullName = `${formData.fname} ${formData.mname} ${formData.lname}`.trim();
+    
+    await push(ref(db, `queues/${today}`), { 
+      ...formData, 
+      name: fullName, 
+      queueNumber: nextNum, 
+      status: "waiting" 
+    });
+    
+    setFormData({ fname: "", mname: "", lname: "", age: "", address: "", procedure: "Check-up" });
+  };
+
+  const callNext = async () => {
+    const nextInLine = queue.find(q => q.status === "waiting");
+    if (!nextInLine) return alert("No more patients waiting!");
+
+    if (window.confirm(`Call ${nextInLine.name} to the clinic?`)) {
+      const currentlyServing = queue.find(q => q.status === "serving");
+      if (currentlyServing) {
+        await remove(ref(db, `queues/${today}/${currentlyServing.id}`));
+      }
+      await update(ref(db, `queues/${today}/${nextInLine.id}`), { status: "serving" });
+    }
   };
 
   return (
-    <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
-      <h3 style={{ fontWeight: 900, marginBottom: '2rem' }}>Walk-in Logbook</h3>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '2rem' }}>
+    <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+        <div>
+          <h3 style={{ fontWeight: 900, fontSize: '1.8rem', margin: 0 }}>Walk-in Line</h3>
+          <p style={{ color: 'var(--text-muted)', margin: 0 }}>Assign queues for unregistered walk-ins</p>
+        </div>
+        <button onClick={callNext} className="btn-primary" style={{ background: 'var(--success)', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.8rem 1.5rem', width: 'auto' }}>
+          <Megaphone size={18} /> Call Next Patient
+        </button>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2.5fr', gap: '2rem' }}>
+        {/* FORM SIDE */}
         <div style={{ background: 'white', padding: '2rem', borderRadius: '24px', border: '1px solid var(--border-color)', height: 'fit-content' }}>
+          <h4 style={{ margin: '0 0 1.5rem 0', fontWeight: 800 }}>New Entry</h4>
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <input placeholder="Full Name" className="modern-input" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
+            <input placeholder="First Name" className="modern-input" value={formData.fname} onChange={e => setFormData({...formData, fname: e.target.value})} required />
+            <input placeholder="Middle Name" className="modern-input" value={formData.mname} onChange={e => setFormData({...formData, mname: e.target.value})} />
+            <input placeholder="Last Name" className="modern-input" value={formData.lname} onChange={e => setFormData({...formData, lname: e.target.value})} required />
             <input placeholder="Age" type="number" className="modern-input" value={formData.age} onChange={e => setFormData({...formData, age: e.target.value})} required />
             <input placeholder="Complete Address" className="modern-input" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} required />
             <select className="modern-input" value={formData.procedure} onChange={e => setFormData({...formData, procedure: e.target.value})}>
               <option value="Check-up">Check-up</option>
-              <option value="Cleaning">Cleaning</option>
               <option value="Extraction">Extraction</option>
+              <option value="Pasta">Pasta</option>
+              <option value="Dental Implant">Dental Implant</option>
+              <option value="Cleaning">Cleaning</option>
+              <option value="Braces">Braces</option>
             </select>
-            <button type="submit" className="btn-primary">Assign Queue #</button>
+            <button type="submit" className="btn-primary" style={{ marginTop: '0.5rem' }}>Assign Queue #</button>
           </form>
         </div>
 
+        {/* TABLE SIDE */}
         <div style={{ background: 'white', borderRadius: '24px', border: '1px solid var(--border-color)', overflow: 'hidden' }}>
-          <table style={{ width: '100%' }}>
+          <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
             <thead>
-              <tr style={{ background: 'var(--bg-color)' }}>
-                <th style={{ padding: '1rem' }}>#</th>
-                <th>Name & Age</th>
-                <th>Complete Address</th>
-                <th>Procedure</th>
-                <th style={{ textAlign: 'center' }}>Action</th>
+              <tr style={{ background: '#f8fafc', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', borderBottom: '1px solid var(--border-color)' }}>
+                <th style={{ padding: '1.2rem', width: '8%' }}>#</th>
+                <th style={{ padding: '1.2rem', width: '22%' }}>Full Name</th>
+                <th style={{ padding: '1.2rem', width: '8%' }}>Age</th>
+                <th style={{ padding: '1.2rem', width: '20%' }}>Address</th>
+                <th style={{ padding: '1.2rem', width: '15%' }}>Procedure</th>
+                <th style={{ padding: '1.2rem', textAlign: 'center', width: '15%' }}>Status</th>
+                <th style={{ padding: '1.2rem', textAlign: 'center', width: '12%' }}>Action</th>
               </tr>
             </thead>
             <tbody>
-              {queue.map(q => (
-                <tr key={q.id}>
-                  <td style={{ padding: '1rem' }}><span style={{ background: 'var(--primary)', color: 'white', padding: '0.4rem 0.8rem', borderRadius: '10px', fontWeight: 900 }}>{q.queueNumber}</span></td>
-                  <td><strong>{q.name}</strong> <small>({q.age})</small></td>
-                  <td style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{q.address}</td>
-                  <td>{q.procedure}</td>
-                  <td style={{ textAlign: 'center' }}>
-                    <button onClick={() => remove(ref(db, `queues/${today}/${q.id}`))} style={{ border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer' }}><Trash2 size={18}/></button>
-                  </td>
+              {queue.length === 0 ? (
+                <tr>
+                  <td colSpan="7" style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)', fontWeight: 600 }}>No walk-ins yet today.</td>
                 </tr>
-              ))}
+              ) : (
+                queue.map(q => (
+                  <tr key={q.id} style={{ borderBottom: '1px solid var(--border-color)', background: q.status === 'serving' ? '#f0fdf4' : 'transparent' }}>
+                    <td style={{ padding: '1rem 1.2rem' }}>
+                      <span style={{ background: q.status === 'serving' ? 'var(--success)' : 'var(--primary)', color: 'white', padding: '0.4rem 0.8rem', borderRadius: '10px', fontWeight: 900 }}>{q.queueNumber}</span>
+                    </td>
+                    <td style={{ padding: '1rem 1.2rem', fontWeight: 700 }}>{q.name}</td>
+                    <td style={{ padding: '1rem 1.2rem', fontWeight: 600, color: 'var(--text-muted)' }}>{q.age}</td>
+                    <td style={{ padding: '1rem 1.2rem', fontSize: '0.85rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={q.address}>
+                      {q.address}
+                    </td>
+                    <td style={{ padding: '1rem 1.2rem', fontWeight: 600 }}>{q.procedure}</td>
+                    <td style={{ padding: '1rem 1.2rem', textAlign: 'center' }}>
+                      <span style={{ 
+                        padding: '0.4rem 0.8rem', 
+                        borderRadius: '50px', 
+                        fontSize: '0.75rem', 
+                        fontWeight: 800, 
+                        textTransform: 'uppercase',
+                        background: q.status === 'serving' ? '#dcfce7' : '#f1f5f9',
+                        color: q.status === 'serving' ? '#166534' : '#64748b',
+                        border: q.status === 'serving' ? '1px solid #bbf7d0' : '1px solid #e2e8f0',
+                        display: 'inline-block'
+                      }}>
+                        {q.status}
+                      </span>
+                    </td>
+                    <td style={{ padding: '1rem 1.2rem', textAlign: 'center' }}>
+                      <button onClick={() => remove(ref(db, `queues/${today}/${q.id}`))} style={{ border: 'none', background: 'none', color: '#fda4af', cursor: 'pointer', display: 'flex', margin: '0 auto' }}>
+                        <Trash2 size={18}/>
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

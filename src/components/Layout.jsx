@@ -2,17 +2,7 @@ import { useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { auth } from "../firebase";
 import { signOut } from "firebase/auth";
-import { 
-  LayoutDashboard, 
-  Users, 
-  Wallet, 
-  FileText, 
-  LogIn, 
-  Monitor, 
-  LogOut, 
-  Menu, 
-  X 
-} from "lucide-react";
+import { LayoutDashboard, Users, FileText, LogIn, Monitor, LogOut, Menu, X } from "lucide-react";
 
 const ToothIcon = ({ size = 24 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -25,9 +15,6 @@ export default function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Check if we are on the Live Queue page
-  const isTVMode = location.pathname === "/live-queue";
-
   const handleLogout = async () => {
     await signOut(auth);
     navigate("/login");
@@ -36,20 +23,10 @@ export default function Layout() {
   const navLinks = [
     { name: "Dashboard", path: "/", icon: <LayoutDashboard size={20} /> },
     { name: "Patient Masterlist", path: "/patients", icon: <Users size={20} /> },
-    { name: "Payments & Visits", path: "/payments", icon: <Wallet size={20} /> },
     { name: "SOA Generator", path: "/soa", icon: <FileText size={20} /> },
     { name: "Walk-in", path: "/walk-in", icon: <LogIn size={20} /> },
     { name: "Live Queue TV", path: "/live-queue", icon: <Monitor size={20} /> },
   ];
-
-  // FIXED: TV Mode wrapper to ensure content is visible
-  if (isTVMode) {
-    return (
-      <div style={{ width: '100vw', height: '100vh', backgroundColor: '#0f172a' }}>
-        <Outlet />
-      </div>
-    );
-  }
 
   return (
     <div style={{ display: 'flex', height: '100vh', backgroundColor: 'var(--bg-color)', overflow: 'hidden' }}>
@@ -73,27 +50,11 @@ export default function Layout() {
         </div>
 
         <nav style={{ padding: '0 1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', flexGrow: 1, marginTop: '1rem' }}>
-          <p style={{ padding: '0 1rem', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.5rem' }}>Clinic Operations</p>
           {navLinks.map((link) => {
             const isActive = location.pathname === link.path;
             return (
-              <Link 
-                key={link.name} 
-                to={link.path} 
-                onClick={() => setSidebarOpen(false)}
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '1rem', 
-                  padding: '0.85rem 1rem', 
-                  borderRadius: '12px', 
-                  textDecoration: 'none', 
-                  backgroundColor: isActive ? 'var(--primary-light)' : 'transparent', 
-                  color: isActive ? 'var(--primary)' : 'var(--text-muted)', 
-                  fontWeight: isActive ? 700 : 500, 
-                  transition: 'all 0.2s ease' 
-                }}
-              >
+              <Link key={link.name} to={link.path} onClick={() => setSidebarOpen(false)}
+                style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.85rem 1rem', borderRadius: '12px', textDecoration: 'none', backgroundColor: isActive ? 'var(--primary-light)' : 'transparent', color: isActive ? 'var(--primary)' : 'var(--text-muted)', fontWeight: isActive ? 700 : 500, transition: 'all 0.2s ease' }}>
                 {link.icon} {link.name}
               </Link>
             );
@@ -111,18 +72,17 @@ export default function Layout() {
         <header style={{ margin: '1.5rem 2rem 0 2rem', backgroundColor: 'rgba(255, 255, 255, 0.8)', backdropFilter: 'blur(12px)', padding: '1rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderRadius: '16px', boxShadow: '0 4px 20px -2px rgba(0,0,0,0.03)', border: '1px solid rgba(255,255,255,0.5)', zIndex: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
              <Menu size={24} cursor="pointer" color="var(--text-main)" onClick={() => setSidebarOpen(true)} style={{ display: window.innerWidth < 768 ? 'block' : 'none' }} />
-             <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>Portal Access</h2>
+             <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>Clinic Portal</h2>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)', fontWeight: 700 }}>
               {auth.currentUser?.email?.charAt(0).toUpperCase() || 'A'}
             </div>
             <div style={{ display: window.innerWidth < 768 ? 'none' : 'block', fontSize: '0.85rem', color: 'var(--text-main)', fontWeight: 600 }}>
-              {auth.currentUser?.email}
+              Admin Access
             </div>
           </div>
         </header>
-
         <div style={{ padding: '2rem', overflowY: 'auto', flexGrow: 1 }}>
           <Outlet />
         </div>
