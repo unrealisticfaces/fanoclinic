@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { auth } from "../firebase";
 import { signOut } from "firebase/auth";
-import { LayoutDashboard, Users, FileText, LogIn, Monitor, LogOut, Menu, X } from "lucide-react";
+import { LayoutDashboard, Users, UserPlus, LogIn, Monitor, LogOut, Menu, X, Calendar } from "lucide-react";
 
 const ToothIcon = ({ size = 24 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -22,10 +22,10 @@ export default function Layout() {
 
   const navLinks = [
     { name: "Dashboard", path: "/", icon: <LayoutDashboard size={20} /> },
+    { name: "New Registration", path: "/register", icon: <UserPlus size={20} /> },
     { name: "Patient Masterlist", path: "/patients", icon: <Users size={20} /> },
-    { name: "SOA Generator", path: "/soa", icon: <FileText size={20} /> },
+    { name: "Appointments", path: "/appointments", icon: <Calendar size={20} /> },
     { name: "Walk-in", path: "/walk-in", icon: <LogIn size={20} /> },
-    { name: "Live Queue TV", path: "/live-queue", icon: <Monitor size={20} /> },
   ];
 
   return (
@@ -61,7 +61,11 @@ export default function Layout() {
           })}
         </nav>
 
-        <div style={{ padding: '1.5rem', borderTop: '1px solid var(--border-color)' }}>
+        {/* SEPARATED LIVE TV AND LOGOUT */}
+        <div style={{ padding: '1.5rem', borderTop: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <Link to="/live-queue" onClick={() => setSidebarOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.85rem 1rem', borderRadius: '12px', textDecoration: 'none', backgroundColor: '#f8fafc', color: 'var(--text-main)', fontWeight: 600, border: '1px solid #e2e8f0', transition: 'all 0.2s ease' }}>
+             <Monitor size={20} /> Live Queue TV
+          </Link>
           <button onClick={handleLogout} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', width: '100%', padding: '0.85rem', background: '#fff1f2', color: 'var(--danger)', border: 'none', borderRadius: '12px', cursor: 'pointer', fontWeight: 600 }}>
             <LogOut size={20} /> Logout
           </button>
@@ -78,8 +82,9 @@ export default function Layout() {
             <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)', fontWeight: 700 }}>
               {auth.currentUser?.email?.charAt(0).toUpperCase() || 'A'}
             </div>
+            
             <div style={{ display: window.innerWidth < 768 ? 'none' : 'block', fontSize: '0.85rem', color: 'var(--text-main)', fontWeight: 600 }}>
-              Admin Access
+              {auth.currentUser?.email === 'admin@gmail.com' ? 'Admin Access' : 'Staff Access'}
             </div>
           </div>
         </header>

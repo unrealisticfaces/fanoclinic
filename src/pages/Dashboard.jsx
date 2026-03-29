@@ -28,7 +28,6 @@ export default function Dashboard() {
       keys.forEach(id => {
         const p = data[id];
         
-        // Scan standard procedures (Extractions, Pasta, Cleanings, Implants)
         ['extractions', 'pasta', 'cleanings', 'implants'].forEach(type => {
           if (p[type]) {
             Object.values(p[type]).forEach(record => {
@@ -41,7 +40,6 @@ export default function Dashboard() {
           }
         });
 
-        // Scan Braces for today's transactions
         if (p.braces) {
           Object.values(p.braces).forEach(contract => {
             if (contract.dateStarted === todayDate) {
@@ -63,7 +61,7 @@ export default function Dashboard() {
       });
 
       setStats(s => ({ ...s, totalPatients: keys.length, todayIncome: income }));
-      setRecentTrans(transactions.sort((a,b) => b.amount - a.amount)); // Sort highest paying first
+      setRecentTrans(transactions.sort((a,b) => b.amount - a.amount)); 
     });
 
     // 2. Fetch Today's Active Walk-in Queue
@@ -91,9 +89,10 @@ export default function Dashboard() {
         </p>
       </div>
 
-      {/* STATS HIGHLIGHT ROW */}
+      {/* COLORED STATS HIGHLIGHT ROW */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginBottom: '2.5rem' }}>
         
+        {/* INCOME (TEAL / SLATE) */}
         <div style={{ background: 'linear-gradient(135deg, var(--primary) 0%, #0f172a 100%)', color: 'white', padding: '2rem', borderRadius: '24px', display: 'flex', alignItems: 'center', gap: '1.5rem', boxShadow: '0 10px 25px -5px rgba(20, 184, 166, 0.4)' }}>
           <div style={{ background: 'rgba(255,255,255,0.2)', padding: '1.2rem', borderRadius: '50%' }}><TrendingUp size={36} /></div>
           <div>
@@ -102,21 +101,24 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div style={{ background: 'white', padding: '2rem', borderRadius: '24px', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '1.5rem', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
-          <div style={{ background: 'var(--bg-color)', padding: '1.2rem', borderRadius: '50%', color: 'var(--primary)' }}><Clock size={36} /></div>
+        {/* WALK-INS (BLUE GRADIENT) */}
+        <div style={{ background: 'linear-gradient(135deg, #3b82f6 0%, #1e3a8a 100%)', color: 'white', padding: '2rem', borderRadius: '24px', display: 'flex', alignItems: 'center', gap: '1.5rem', boxShadow: '0 10px 25px -5px rgba(59, 130, 246, 0.4)' }}>
+          <div style={{ background: 'rgba(255,255,255,0.2)', padding: '1.2rem', borderRadius: '50%' }}><Clock size={36} /></div>
           <div>
-            <p style={{ margin: '0 0 0.5rem 0', fontWeight: 700, color: 'var(--text-muted)' }}>TOTAL WALK-INS TODAY</p>
-            <h2 style={{ margin: 0, fontSize: '2.5rem', fontWeight: 900, color: 'var(--text-main)' }}>{stats.todayWalkins}</h2>
+            <p style={{ margin: '0 0 0.5rem 0', fontWeight: 600, letterSpacing: '1px', opacity: 0.9 }}>TOTAL WALK-INS TODAY</p>
+            <h2 style={{ margin: 0, fontSize: '2.5rem', fontWeight: 900 }}>{stats.todayWalkins}</h2>
           </div>
         </div>
 
-        <div style={{ background: 'white', padding: '2rem', borderRadius: '24px', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '1.5rem', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
-          <div style={{ background: '#f8fafc', padding: '1.2rem', borderRadius: '50%', color: '#64748b' }}><Users size={36} /></div>
+        {/* REGISTERED PATIENTS (INDIGO/PURPLE GRADIENT) */}
+        <div style={{ background: 'linear-gradient(135deg, #8b5cf6 0%, #4c1d95 100%)', color: 'white', padding: '2rem', borderRadius: '24px', display: 'flex', alignItems: 'center', gap: '1.5rem', boxShadow: '0 10px 25px -5px rgba(139, 92, 246, 0.4)' }}>
+          <div style={{ background: 'rgba(255,255,255,0.2)', padding: '1.2rem', borderRadius: '50%' }}><Users size={36} /></div>
           <div>
-            <p style={{ margin: '0 0 0.5rem 0', fontWeight: 700, color: 'var(--text-muted)' }}>REGISTERED PATIENTS</p>
-            <h2 style={{ margin: 0, fontSize: '2.5rem', fontWeight: 900, color: 'var(--text-main)' }}>{stats.totalPatients}</h2>
+            <p style={{ margin: '0 0 0.5rem 0', fontWeight: 600, letterSpacing: '1px', opacity: 0.9 }}>REGISTERED PATIENTS</p>
+            <h2 style={{ margin: 0, fontSize: '2.5rem', fontWeight: 900 }}>{stats.totalPatients}</h2>
           </div>
         </div>
+
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>

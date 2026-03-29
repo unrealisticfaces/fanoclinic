@@ -78,7 +78,7 @@ export default function LiveQueue() {
         {/* TOP: VIDEO PLAYER */}
         <div style={{ flexGrow: 1, background: '#000', borderRadius: '24px', overflow: 'hidden', border: '1px solid #27272a', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
           <video autoPlay controls style={{ width: '100%', height: '100%', objectFit: 'contain' }}>
-            <source src="/video/thor.mp4" type="video/mp4" />
+            <source src="/videos/2.mp4" type="video/mp4" />
           </video>
         </div>
 

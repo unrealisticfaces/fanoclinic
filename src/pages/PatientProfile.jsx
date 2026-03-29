@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { db } from "../firebase";
+import { db, auth } from "../firebase";
 import { ref, onValue, remove, push } from "firebase/database";
 import { ArrowLeft, User, Activity, Trash2, Calendar, Phone, MapPin, Plus, X, AlertCircle } from "lucide-react";
+import toast from "react-hot-toast";
 
 export default function PatientProfile() {
   const { id } = useParams();
@@ -15,6 +16,8 @@ export default function PatientProfile() {
     type: "extractions", date: new Date().toLocaleDateString('en-CA'), dentist: "", notes: "", amount: "", paid: "" 
   });
 
+  const isAdmin = auth.currentUser?.email === "admin@gmail.com";
+
   useEffect(() => {
     onValue(ref(db, `patients/${id}`), (snapshot) => { 
       setPatient(snapshot.val()); 
@@ -25,7 +28,6 @@ export default function PatientProfile() {
 
   const hasActiveBraces = patient.braces && Object.keys(patient.braces).length > 0;
 
-  // Calculate Active Braces Balance ONLY for the Modal Display
   let activeBracesBalance = 0;
   if (hasActiveBraces) {
     const contractIds = Object.keys(patient.braces);
@@ -37,10 +39,29 @@ export default function PatientProfile() {
     activeBracesBalance = parseFloat(activeContract.amount || 0) - totalPaid;
   }
 
-  const deleteRecord = async (path) => {
-    if (window.confirm("Delete this medical record? This cannot be undone.")) {
-      await remove(ref(db, path));
-    }
+  const deleteRecord = (path) => {
+    // CUSTOM INTERACTIVE TOAST FOR DELETION
+    toast((t) => (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <span style={{ fontWeight: 600 }}>Delete this medical record? This cannot be undone.</span>
+        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+          <button 
+            onClick={() => toast.dismiss(t.id)} 
+            style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: 'none', background: '#334155', color: '#fff', cursor: 'pointer', fontWeight: 600 }}>
+            Cancel
+          </button>
+          <button 
+            onClick={async () => {
+              toast.dismiss(t.id);
+              await remove(ref(db, path));
+              toast.success("Medical record deleted permanently.");
+            }} 
+            style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: 'none', background: '#ef4444', color: 'white', cursor: 'pointer', fontWeight: 600 }}>
+            Delete
+          </button>
+        </div>
+      </div>
+    ), { duration: Infinity });
   };
 
   const handleAddProcedure = async (e) => {
@@ -66,8 +87,9 @@ export default function PatientProfile() {
       
       setIsProcModalOpen(false);
       setProcData({ type: "extractions", date: new Date().toLocaleDateString('en-CA'), dentist: "", notes: "", amount: "", paid: "" });
+      toast.success("Procedure added successfully!");
     } catch (err) { 
-      alert(err.message); 
+      toast.error(err.message); 
     } finally { 
       setLoading(false); 
     }
@@ -82,7 +104,6 @@ export default function PatientProfile() {
           <h4 style={{ margin: 0, fontWeight: 800 }}>{title} History</h4>
         </div>
         <div style={{ overflowX: 'auto' }}>
-          {/* Table Layout Fixed forces the widths to be respected exactly */}
           <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse', tableLayout: 'fixed', minWidth: '800px' }}>
             <thead>
               <tr style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', background: 'white', borderBottom: '2px solid var(--border-color)' }}>
@@ -107,7 +128,11 @@ export default function PatientProfile() {
                     <td style={{ padding: '1rem', fontSize: '0.85rem', textAlign: 'right', color: 'var(--success)', fontWeight: 600, verticalAlign: 'middle' }}>₱{parseFloat(item.downpayment || 0).toLocaleString()}</td>
                     <td style={{ padding: '1rem', fontSize: '0.85rem', textAlign: 'right', fontWeight: 800, color: bal <= 0 ? 'var(--success)' : 'var(--danger)', verticalAlign: 'middle' }}>₱{bal.toLocaleString()}</td>
                     <td style={{ padding: '1rem', textAlign: 'center', verticalAlign: 'middle' }}>
-                      <button onClick={() => deleteRecord(`patients/${id}/${pathKey}/${key}`)} style={{ background: 'none', border: 'none', color: '#fda4af', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }}><Trash2 size={16}/></button>
+                      {isAdmin && (
+                        <button onClick={() => deleteRecord(`patients/${id}/${pathKey}/${key}`)} style={{ background: 'none', border: 'none', color: '#fda4af', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }}>
+                          <Trash2 size={16}/>
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );
@@ -125,7 +150,6 @@ export default function PatientProfile() {
         <ArrowLeft size={18} /> Back to Masterlist
       </button>
 
-      {/* Premium ID Card */}
       <div style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', padding: '2.5rem', borderRadius: '24px', color: 'white', marginBottom: '3rem', display: 'flex', alignItems: 'center', gap: '2rem', boxShadow: '0 15px 30px -10px rgba(15,23,42,0.3)' }}>
         <div style={{ background: 'rgba(255,255,255,0.1)', padding: '1.5rem', borderRadius: '20px' }}>
           <User size={64} color="var(--primary)" />
@@ -153,7 +177,6 @@ export default function PatientProfile() {
       {renderTable(patient.implants, "implants", "Dental Implant")}
       {renderTable(patient.cleanings, "cleanings", "Cleaning & Prophylaxis")}
 
-      {/* BRACES SPECIAL SECTION ALIGNED */}
       {hasActiveBraces && (
         <div style={{ background: 'white', borderRadius: '16px', border: '1px solid var(--border-color)', overflow: 'hidden', marginBottom: '2rem', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
           <div style={{ padding: '1.2rem 1.5rem', background: '#f8fafc', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -184,7 +207,11 @@ export default function PatientProfile() {
                        <td style={{ padding: '1rem', fontSize: '0.85rem', fontWeight: 700, verticalAlign: 'middle' }}>Initial Installation Downpayment</td>
                        <td style={{ padding: '1rem', fontSize: '0.85rem', textAlign: 'right', color: 'var(--success)', fontWeight: 800, verticalAlign: 'middle' }}>₱{parseFloat(contract.downpayment).toLocaleString()}</td>
                        <td style={{ padding: '1rem', textAlign: 'center', verticalAlign: 'middle' }}>
-                          <button onClick={() => deleteRecord(`patients/${id}/braces/${contractId}`)} style={{ background: 'none', border: 'none', color: '#fda4af', cursor: 'pointer', display: 'flex', margin: '0 auto' }}><Trash2 size={16}/></button>
+                          {isAdmin && (
+                            <button onClick={() => deleteRecord(`patients/${id}/braces/${contractId}`)} style={{ background: 'none', border: 'none', color: '#fda4af', cursor: 'pointer', display: 'flex', margin: '0 auto' }}>
+                              <Trash2 size={16}/>
+                            </button>
+                          )}
                        </td>
                      </tr>
                      {contract.visits && Object.entries(contract.visits).map(([vId, v]) => (
@@ -195,7 +222,11 @@ export default function PatientProfile() {
                          </td>
                          <td style={{ padding: '1rem', fontSize: '0.85rem', textAlign: 'right', color: 'var(--success)', fontWeight: 700, verticalAlign: 'middle' }}>₱{parseFloat(v.paid).toLocaleString()}</td>
                          <td style={{ padding: '1rem', textAlign: 'center', verticalAlign: 'middle' }}>
-                            <button onClick={() => deleteRecord(`patients/${id}/braces/${contractId}/visits/${vId}`)} style={{ background: 'none', border: 'none', color: '#fda4af', cursor: 'pointer', display: 'flex', margin: '0 auto' }}><Trash2 size={16}/></button>
+                            {isAdmin && (
+                              <button onClick={() => deleteRecord(`patients/${id}/braces/${contractId}/visits/${vId}`)} style={{ background: 'none', border: 'none', color: '#fda4af', cursor: 'pointer', display: 'flex', margin: '0 auto' }}>
+                                <Trash2 size={16}/>
+                              </button>
+                            )}
                          </td>
                        </tr>
                      ))}
@@ -207,7 +238,6 @@ export default function PatientProfile() {
         </div>
       )}
 
-      {/* MODAL: ADD PROCEDURE DIRECTLY TO PROFILE */}
       {isProcModalOpen && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
           <div style={{ background: 'white', width: '100%', maxWidth: '600px', borderRadius: '24px', padding: '2.5rem', position: 'relative' }}>
@@ -228,7 +258,6 @@ export default function PatientProfile() {
                 </select>
               </div>
 
-              {/* DYNAMIC BALANCE DISPLAY IN MODAL FOR MONTHLY ADJUSTMENT */}
               {procData.type === 'braces_visit' && (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8fafc', padding: '1rem 1.5rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)' }}>
